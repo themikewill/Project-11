@@ -364,13 +364,286 @@ function CarryForwardModal({dl,newDateStr,onApply,onClose}){
   );
 }
 
-// ── SCORECARD TAB ──
-function ScorecardTab({sc,onChange}){
+function getBranchVisitDiary(branchName){
+  // Scan all daily localStorage keys for entries matching this branch
+  const diary=[];
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const key=localStorage.key(i);
+      if(!key||!key.startsWith('p11d_'))continue;
+      const dateStr=key.replace('p11d_','');
+      const raw=localStorage.getItem(key);
+      if(!raw)continue;
+      const d=JSON.parse(raw);
+      if(!d.branch)continue;
+      // Match by name or partial
+      const bn=d.branch.toLowerCase();
+      const target=branchName.toLowerCase();
+      if(bn===target||bn.includes(target)||target.includes(bn)){
+        diary.push({
+          date:dateStr,
+          branch:d.branch,
+          priorities:d.priorities||[],
+          calls:(d.calls||[]).filter(c=>c.text),
+          tasks:(d.tasks||[]).filter(t=>t.text),
+          eod:d.eod||{},
+          dor:d.dor,
+          alerts:d.alerts,
+        });
+      }
+    }
+  }catch(ex){}
+  return diary.sort((a,b)=>b.date.localeCompare(a.date));
+}
+
+// ── BRANCH DIARY MODAL ──
+function BranchDiaryModal({branch, onClose}){
+  const diary=useMemo(()=>getBranchVisitDiary(branch.name),[branch.name]);
+
+  return e('div',{className:'modal-bg',style:{alignItems:'flex-start',paddingTop:'10px',overflowY:'auto'},onClick:ev=>ev.target.className.includes('modal-bg')&&onClose()},
+    e('div',{className:'modal',style:{maxWidth:'480px',maxHeight:'90vh',overflowY:'auto'}},
+      e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'14px'}},
+        e('div',null,
+          e('div',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:'18px',color:'var(--navy)',letterSpacing:'1px'}},branch.name.toUpperCase()),
+          e('div',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'11px',color:'var(--gray)',letterSpacing:'1px'}},'VISIT DIARY · '+branch.id)
+        ),
+        e('button',{onClick:onClose,style:{background:'none',border:'none',fontSize:'20px',cursor:'pointer',color:'var(--gray)',padding:'0 4px'}},'×')
+      ),
+      diary.length===0
+        ?e('div',{style:{textAlign:'center',padding:'30px 0',fontFamily:"'Barlow',sans-serif",fontSize:'13px',color:'var(--gray)'}},'No visits recorded yet.')
+        :diary.map((visit,idx)=>e('div',{key:visit.date,style:{marginBottom:'12px',borderRadius:'8px',overflow:'hidden',border:'1px solid var(--lblue)'}},
+          e('div',{style:{background:'var(--navy)',padding:'8px 12px',display:'flex',justifyContent:'space-between',alignItems:'center'}},
+            e('div',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:'13px',color:'var(--white)',letterSpacing:'1px'}},fmtDateLong(visit.date)),
+            e('div',{style:{display:'flex',gap:'6px'}},
+              visit.dor&&e('span',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'9px',background:'var(--gold)',color:'var(--white)',padding:'2px 5px',borderRadius:'3px',fontWeight:700}},'DOR'),
+              visit.alerts&&e('span',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'9px',background:'var(--red)',color:'var(--white)',padding:'2px 5px',borderRadius:'3px',fontWeight:700}},'ALERTS')
+            )
+          ),
+          visit.priorities.some(p=>p)&&e('div',{style:{padding:'8px 12px',borderBottom:'1px solid var(--lblue)',background:'var(--white)'}},
+            e('div',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'9px',color:'var(--gray)',letterSpacing:'1px',textTransform:'uppercase',marginBottom:'5px'}},'Priorities'),
+            ...visit.priorities.filter(p=>p).map((p,i)=>e('div',{key:i,style:{display:'flex',alignItems:'center',gap:'6px',marginBottom:'3px'}},
+              e('div',{style:{width:'16px',height:'16px',borderRadius:'50%',background:'var(--gold)',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:'9px',color:'var(--white)',flexShrink:0}},i+1),
+              e('div',{style:{fontFamily:"'Barlow',sans-serif",fontSize:'12px',color:'var(--text)'}},p)
+            ))
+          ),
+          (visit.eod.well||visit.eod.improve||visit.eod.carry)&&e('div',{style:{padding:'8px 12px',background:'var(--lblue)'}},
+            visit.eod.well&&e('div',{style:{marginBottom:'4px'}},
+              e('div',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'9px',color:'var(--green)',letterSpacing:'1px',marginBottom:'1px'}},'WHAT WENT WELL'),
+              e('div',{style:{fontFamily:"'Barlow',sans-serif",fontSize:'11px',color:'var(--dgray)'}},visit.eod.well)
+            ),
+            visit.eod.improve&&e('div',{style:{marginBottom:'4px'}},
+              e('div',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'9px',color:'var(--amber)',letterSpacing:'1px',marginBottom:'1px'}},'WHAT TO IMPROVE'),
+              e('div',{style:{fontFamily:"'Barlow',sans-serif",fontSize:'11px',color:'var(--dgray)'}},visit.eod.improve)
+            ),
+            visit.eod.carry&&e('div',null,
+              e('div',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'9px',color:'var(--navy)',letterSpacing:'1px',marginBottom:'1px'}},'CARRIED FORWARD'),
+              e('div',{style:{fontFamily:"'Barlow',sans-serif",fontSize:'11px',color:'var(--dgray)'}},visit.eod.carry)
+            )
+          )
+        )),
+      e('button',{className:'btn btn-s',onClick:onClose,style:{width:'100%',marginTop:'8px'}},'Close')
+    )
+  );
+}
+
+// ── 21-30 REVIEW MODAL ──
+const OBS_ITEMS = [
+  'Contact attempt variety (times/frequency)',
+  'Calling work numbers when available',
+  'Calling references when available',
+  'Payment history being reviewed',
+  'Autopay being offered/used',
+  'Payday/due date alignment being checked',
+  'Probing questions being asked',
+  'Payment extensions used appropriately',
+  'Origination quality',
+];
+const OBS_OPTIONS = ['good','concern','na'];
+const OBS_LABELS = {'good':'✅ Good','concern':'⚠️ Concern','na':'— N/A'};
+const OBS_COLORS = {'good':'#E8F5E9','concern':'#FFF3E0','na':'var(--lblue)'};
+
+function load2130(branchId, weekKey){
+  try{
+    const r=localStorage.getItem(`p11_2130_${branchId}_${weekKey}`);
+    if(r) return JSON.parse(r);
+  }catch(ex){}
+  return null;
+}
+function save2130(branchId, weekKey, data){
+  try{ localStorage.setItem(`p11_2130_${branchId}_${weekKey}`, JSON.stringify(data)); }catch(ex){}
+}
+function getPrevWeekKey(weekKey){
+  const d=new Date(weekKey+'T12:00:00');
+  d.setDate(d.getDate()-7);
+  return d.toISOString().slice(0,10);
+}
+function makeDefault2130(branchId, weekKey, branch){
+  // Carry forward open/slipped items from last week
+  const prevKey=getPrevWeekKey(weekKey);
+  const prev=load2130(branchId, prevKey);
+  const carriedFollowups=prev
+    ? prev.nextFollowups.filter(f=>f.text).map(f=>({text:f.text, status:'open'}))
+    : [];
+  const carriedRepos=prev
+    ? (prev.repos||[]).filter(r=>r.text&&!r.resolved).map(r=>({...r}))
+    : [];
+  return {
+    branchId, weekKey,
+    date: todayStr(),
+    totalAccounts:'', reviewedAccounts:'',
+    priorFollowups: carriedFollowups,
+    repos: carriedRepos.length>0 ? carriedRepos : [{text:'',resolved:false}],
+    observations: Object.fromEntries(OBS_ITEMS.map(k=>[k,{rating:'na',notes:''}])),
+    nextFollowups: [{text:''}],
+    notes:'',
+  };
+}
+
+function Review2130Modal({branch, weekKey, onClose, onComplete}){
+  const[data, setData]=useState(()=>{
+    const saved=load2130(branch.id, weekKey);
+    return saved || makeDefault2130(branch.id, weekKey, branch);
+  });
+
+  function upd(k,v){ setData(d=>({...d,[k]:v})); }
+  function save(andComplete=false){
+    save2130(branch.id, weekKey, data);
+    if(andComplete) onComplete();
+    else onClose();
+  }
+
+  const updObs=(item,k,v)=>setData(d=>({...d,observations:{...d.observations,[item]:{...d.observations[item],[k]:v}}}));
+  const updRepo=(i,k,v)=>setData(d=>{const a=[...d.repos];a[i]={...a[i],[k]:v};return{...d,repos:a};});
+  const addRepo=()=>setData(d=>({...d,repos:[...d.repos,{text:'',resolved:false}]}));
+  const updNextFU=(i,v)=>setData(d=>{const a=[...d.nextFollowups];a[i]={text:v};return{...d,nextFollowups:a};});
+  const addNextFU=()=>setData(d=>({...d,nextFollowups:[...d.nextFollowups,{text:''}]}));
+  const updPriorStatus=(i,v)=>setData(d=>{const a=[...d.priorFollowups];a[i]={...a[i],status:v};return{...d,priorFollowups:a};});
+
+  const BM_MAP = {
+    'WI0262':'Kandi N.','WI0264':'Zack W.','WI0270':'Sandy S.',
+    'WI0279':'Angela B.','WI0290':'Lorina Z.','WI0292':'Cortney P.',
+    'WI0305':'Stacey B.','WI0307':'Leah H.','WI0316':'Anna P.',
+    'WI0347':'Lisa R.','WI0348':'Erika F.'
+  };
+  const bm = BM_MAP[branch.id] || '';
+
+  const STATUS_COLORS={'closed':'#E8F5E9','open':'#FFF3E0','slipped':'#FFEBEE'};
+  const STATUS_LABELS={'closed':'Closed','open':'Still Open','slipped':'Slipped'};
+
+  return e('div',{className:'modal-bg',style:{alignItems:'flex-start',paddingTop:'10px',overflowY:'auto'}},
+    e('div',{className:'modal',style:{maxWidth:'480px',maxHeight:'90vh',overflowY:'auto'}},
+      // Header
+      e('div',{style:{marginBottom:'14px'}},
+        e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}},
+          e('div',null,
+            e('div',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:'18px',color:'var(--navy)',letterSpacing:'1px'}},
+              branch.name.toUpperCase()
+            ),
+            e('div',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'11px',color:'var(--gray)',letterSpacing:'1px'}},
+              `${branch.id} · 21-30 REVIEW · ${fmtWeek(weekKey)}`
+            )
+          ),
+          e('button',{onClick:()=>save(false),style:{background:'none',border:'none',fontSize:'20px',cursor:'pointer',color:'var(--gray)',padding:'0 4px'}},'×')
+        )
+      ),
+
+      // Prior week follow-ups
+      data.priorFollowups.length>0&&e('div',{style:{marginBottom:'16px'}},
+        e('div',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:'11px',letterSpacing:'1.5px',color:'var(--gray)',textTransform:'uppercase',marginBottom:'6px'}},'Prior Week Follow-Ups'),
+        data.priorFollowups.map((f,i)=>e('div',{key:i,style:{background:'var(--lblue)',borderRadius:'6px',padding:'8px',marginBottom:'6px'}},
+          e('div',{style:{fontFamily:"'Barlow',sans-serif",fontSize:'12px',color:'var(--text)',marginBottom:'6px'}},f.text),
+          e('div',{style:{display:'flex',gap:'6px'}},
+            ['closed','open','slipped'].map(s=>e('button',{key:s,onClick:()=>updPriorStatus(i,s),
+              style:{flex:1,padding:'4px',borderRadius:'4px',border:'none',cursor:'pointer',fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:'10px',letterSpacing:'0.5px',
+                background:f.status===s?STATUS_COLORS[s]:'var(--white)',color:f.status===s?'var(--text)':'var(--gray)'}
+            },STATUS_LABELS[s]))
+          )
+        ))
+      ),
+
+      // Snapshot
+      e('div',{style:{marginBottom:'16px'}},
+        e('div',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:'11px',letterSpacing:'1.5px',color:'var(--gray)',textTransform:'uppercase',marginBottom:'6px'}},'21-30 Snapshot'),
+        e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}},
+          e('div',null,
+            e('label',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'10px',color:'var(--gray)',letterSpacing:'1px',textTransform:'uppercase',display:'block',marginBottom:'2px'}},'Total 21-30 Accounts'),
+            e(StableInput,{className:'plain-input',value:data.totalAccounts,onBlur:v=>upd('totalAccounts',v),placeholder:'0',style:{border:'none',borderBottom:'1.5px solid var(--gold)',padding:'4px 0',fontFamily:"'Barlow Condensed',sans-serif",fontSize:'18px',fontWeight:700,color:'var(--navy)',background:'transparent',outline:'none',width:'100%'}})
+          ),
+          e('div',null,
+            e('label',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontSize:'10px',color:'var(--gray)',letterSpacing:'1px',textTransform:'uppercase',display:'block',marginBottom:'2px'}},'# Reviewed This Call'),
+            e(StableInput,{className:'plain-input',value:data.reviewedAccounts,onBlur:v=>upd('reviewedAccounts',v),placeholder:'0',style:{border:'none',borderBottom:'1.5px solid var(--gold)',padding:'4px 0',fontFamily:"'Barlow Condensed',sans-serif",fontSize:'18px',fontWeight:700,color:'var(--navy)',background:'transparent',outline:'none',width:'100%'}})
+          )
+        )
+      ),
+
+      // Potential 1st payment default repos
+      e('div',{style:{marginBottom:'16px'}},
+        e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}},
+          e('div',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:'11px',letterSpacing:'1.5px',color:'var(--gray)',textTransform:'uppercase'}},'Potential 1st Payment Default Repos'),
+          e('button',{onClick:addRepo,style:{background:'var(--gold)',color:'var(--white)',border:'none',borderRadius:'4px',padding:'3px 8px',fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:'11px',cursor:'pointer'}},'+')
+        ),
+        data.repos.map((r,i)=>e('div',{key:i,style:{display:'flex',alignItems:'center',gap:'8px',marginBottom:'6px'}},
+          e('input',{type:'checkbox',checked:r.resolved,onChange:ev=>updRepo(i,'resolved',ev.target.checked),style:{width:'15px',height:'15px',accentColor:'var(--navy)',flexShrink:0}}),
+          e(StableInput,{className:'plain-input',value:r.text,onBlur:v=>updRepo(i,'text',v),placeholder:'Account identifier + note...',style:{flex:1,border:'none',borderBottom:'1px solid var(--gray)',padding:'3px 0',fontFamily:"'Barlow',sans-serif",fontSize:'12px',color:r.resolved?'var(--gray)':'var(--text)',textDecoration:r.resolved?'line-through':'none',background:'transparent',outline:'none'}})
+        ))
+      ),
+
+      // Branch operational observations
+      e('div',{style:{marginBottom:'16px'}},
+        e('div',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:'11px',letterSpacing:'1.5px',color:'var(--gray)',textTransform:'uppercase',marginBottom:'6px'}},'Branch Operational Observations'),
+        OBS_ITEMS.map(item=>{
+          const obs=data.observations[item]||{rating:'na',notes:''};
+          return e('div',{key:item,style:{borderRadius:'6px',border:'1px solid var(--lblue)',marginBottom:'6px',overflow:'hidden'}},
+            e('div',{style:{padding:'6px 10px',background:'var(--lblue)'}},
+              e('div',{style:{fontFamily:"'Barlow',sans-serif",fontSize:'11px',color:'var(--dgray)',marginBottom:'5px'}},item),
+              e('div',{style:{display:'flex',gap:'5px'}},
+                OBS_OPTIONS.map(opt=>e('button',{key:opt,onClick:()=>updObs(item,'rating',opt),
+                  style:{flex:1,padding:'4px 2px',borderRadius:'4px',border:'none',cursor:'pointer',fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:'9px',letterSpacing:'0.5px',
+                    background:obs.rating===opt?OBS_COLORS[opt]:'var(--white)',color:'var(--dgray)',
+                    outline:obs.rating===opt?`2px solid ${obs.rating==='good'?'var(--green)':obs.rating==='concern'?'var(--amber)':'var(--gray)'}`:'none'}
+                },OBS_LABELS[opt]))
+              )
+            ),
+            obs.rating!=='na'&&e('div',{style:{padding:'6px 10px',background:'var(--white)'}},
+              e(StableTextarea,{value:obs.notes,onBlur:v=>updObs(item,'notes',v),placeholder:'Notes...',rows:1,style:{width:'100%',border:'none',borderBottom:'1px solid var(--gray)',padding:'2px 0',fontFamily:"'Barlow',sans-serif",fontSize:'11px',color:'var(--text)',background:'transparent',outline:'none',resize:'none'}})
+            )
+          );
+        })
+      ),
+
+      // Next week follow-ups
+      e('div',{style:{marginBottom:'16px'}},
+        e('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}},
+          e('div',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:'11px',letterSpacing:'1.5px',color:'var(--gray)',textTransform:'uppercase'}},'Next Week Follow-Ups'),
+          e('button',{onClick:addNextFU,style:{background:'var(--navy)',color:'var(--white)',border:'none',borderRadius:'4px',padding:'3px 8px',fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:'11px',cursor:'pointer'}},'+')
+        ),
+        data.nextFollowups.map((f,i)=>e('div',{key:i,style:{marginBottom:'6px'}},
+          e(StableInput,{className:'plain-input',value:f.text,onBlur:v=>updNextFU(i,v),placeholder:'BM commitment or follow-up action...',style:{width:'100%',border:'none',borderBottom:'1px solid var(--gray)',padding:'4px 0',fontFamily:"'Barlow',sans-serif",fontSize:'12px',color:'var(--text)',background:'transparent',outline:'none'}})
+        ))
+      ),
+
+      // Notes
+      e('div',{style:{marginBottom:'16px'}},
+        e('div',{style:{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:'11px',letterSpacing:'1.5px',color:'var(--gray)',textTransform:'uppercase',marginBottom:'6px'}},'Notes / Patterns / Concerns'),
+        e(StableTextarea,{value:data.notes,onBlur:v=>upd('notes',v),placeholder:'Overall patterns, BM effort observations, concerns to watch...',rows:3,style:{width:'100%',border:'1px solid var(--gray)',borderRadius:'6px',padding:'8px',fontFamily:"'Barlow',sans-serif",fontSize:'13px',color:'var(--text)',background:'var(--white)',outline:'none',resize:'none'}})
+      ),
+
+      // Buttons
+      e('div',{style:{display:'flex',gap:'8px'}},
+        e('button',{className:'btn btn-s',onClick:()=>save(false),style:{flex:1}},'Save Draft'),
+        e('button',{className:'btn btn-p',onClick:()=>save(true),style:{flex:2}},'✓ Complete Review')
+      )
+    )
+  );
+}
+function ScorecardTab({sc,onChange,weekKey}){
   const visits=useMemo(()=>getVisitHistory(),[]);
   const today=todayStr();
   const{alerts,show}=get21DayAlerts(sc.branches);
   const[uploading,setUploading]=useState(false);
   const[uploadMsg,setUploadMsg]=useState('');
+  const[reviewBranch,setReviewBranch]=useState(null);
+  const[diaryBranch,setDiaryBranch]=useState(null);
   const fileRef=useRef(null);
 
   const updArea=(k,v)=>onChange({...sc,area:{...sc.area,[k]:v}});
@@ -525,25 +798,39 @@ For area row find same metrics from the Area/Eastern WI row.`}
               const flagged=show&&!bd?.call21;
               return e('tr',{key:b.id},
                 e('td',{className:'br-num'},b.id),
-                e('td',{className:'br-name'},b.name),
+                e('td',{className:'br-name',style:{cursor:'pointer',color:'var(--navy)',fontWeight:600},onClick:()=>setDiaryBranch(b)},b.name),
                 ...METRIC_KEYS.map(k=>e('td',{key:k},
                   e(StableInput,{className:'sc-inp',value:bd[k],onBlur:v=>updBranch(b.id,k,v),placeholder:'—'})
                 )),
                 e('td',null,e(StableInput,{className:'sc-inp',value:bd.rank,onBlur:v=>updBranch(b.id,'rank',v),placeholder:'—'})),
                 e('td',{style:{background:flagged?'#FFEBEE':''}},
-                  e('input',{type:'checkbox',checked:bd.call21,onChange:ev=>updBranch(b.id,'call21',ev.target.checked)})
+                  e('button',{
+                    onClick:()=>setReviewBranch(b),
+                    style:{background:bd.call21?'var(--green)':'transparent',border:`1.5px solid ${bd.call21?'var(--green)':'var(--gray)'}`,borderRadius:'4px',padding:'2px 6px',cursor:'pointer',fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:'9px',color:bd.call21?'var(--white)':'var(--gray)',letterSpacing:'0.5px',whiteSpace:'nowrap'}
+                  },bd.call21?'✓ Done':'Review')
                 ),
-                e('td',null,visitDisplay(b.id))
+                e('td',{style:{cursor:'pointer'},onClick:()=>setDiaryBranch(b)},visitDisplay(b.id))
               );
             })
           )
         )
       )
-    )
+    ),
+    reviewBranch&&e(Review2130Modal,{
+      branch:reviewBranch,
+      weekKey,
+      onClose:()=>setReviewBranch(null),
+      onComplete:()=>{
+        updBranch(reviewBranch.id,'call21',true);
+        setReviewBranch(null);
+      }
+    }),
+    diaryBranch&&e(BranchDiaryModal,{
+      branch:diaryBranch,
+      onClose:()=>setDiaryBranch(null)
+    })
   );
 }
-
-// ── WEEKLY TAB ──
 function WeeklyTab({wk,onChange,weekKey,areaPri,onAreaPriChange}){
   const updPri=(i,v)=>{const a=[...areaPri];a[i]=v;onAreaPriChange(a);};
   const updMon=(i,v)=>{const a=[...wk.monTasks];a[i]=v;onChange({...wk,monTasks:a});};
@@ -979,7 +1266,7 @@ function App(){
         weekKey,
         onSwitchTab:switchTab
       }),
-      tab==='scorecard'&&e(ScorecardTab,{sc:weekData.sc,onChange:v=>handleWeekChange('sc',v)}),
+      tab==='scorecard'&&e(ScorecardTab,{sc:weekData.sc,onChange:v=>handleWeekChange('sc',v),weekKey}),
       tab==='weekly'&&e(WeeklyTab,{
         wk:weekData.wk,
         onChange:v=>handleWeekChange('wk',v),
