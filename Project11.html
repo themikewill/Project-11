@@ -982,6 +982,17 @@ function DailyTab({currentDate,onDateChange,wkDays}){
   if(crashMsg)return e('div',{style:{padding:'20px',color:'red',fontFamily:'monospace',fontSize:'12px',wordBreak:'break-all'}},'DAILY ERROR: '+crashMsg);
   if(!dl)return e('div',{style:{padding:'40px',textAlign:'center',fontFamily:"'Barlow',sans-serif",color:'var(--gray)'}},'Loading...');
 
+  // Validate dl structure
+  try{
+    if(!dl.priorities)throw new Error('dl.priorities missing');
+    if(!dl.calls)throw new Error('dl.calls missing');
+    if(!dl.tasks)throw new Error('dl.tasks missing');
+    if(!dl.agenda)throw new Error('dl.agenda missing');
+    if(!dl.eod)throw new Error('dl.eod missing');
+  }catch(err){
+    return e('div',{style:{padding:'20px',color:'red',fontFamily:'monospace',fontSize:'12px',wordBreak:'break-all'}},'STRUCTURE ERROR: '+err.message+' | dl='+JSON.stringify(dl).slice(0,200));
+  }
+
   function persist(newDl){
     setDl(newDl);
     if(newDl.branch&&newDl.date)recordVisit(newDl.branch,newDl.date);
