@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project 11 — Migrate to Cloud</title>
+<style>
+  body{font-family:sans-serif;background:#1B3A6B;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px;box-sizing:border-box;}
+  .box{background:#fff;color:#1a1a2e;border-radius:12px;padding:28px;max-width:400px;width:100%;}
+  h2{font-size:20px;margin:0 0 6px;color:#1B3A6B;}
+  p{font-size:13px;color:#666;margin:0 0 20px;}
+  button{width:100%;padding:12px;background:#1B3A6B;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px;}
+  button:disabled{opacity:0.5;cursor:default;}
+  #log{margin-top:16px;font-size:12px;color:#333;max-height:300px;overflow-y:auto;background:#f5f5f5;border-radius:6px;padding:10px;}
+  .ok{color:#2E7D32;} .err{color:#C62828;} .info{color:#1B3A6B;}
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>Project 11 — Cloud Migration</h2>
+  <p>This page reads your local data from this browser and pushes it to the cloud so it works on any device.</p>
+  <button id="btn" onclick="migrate()">⬆ Migrate to Cloud</button>
+  <div id="log"></div>
+</div>
+<script>
+const VERCEL = 'https://project-11-henna.vercel.app';
+
+function log(msg, cls='info'){
+  const d = document.getElementById('log');
+  d.innerHTML += `<div class="${cls}">${msg}</div>`;
+  d.scrollTop = d.scrollHeight;
+}
+
+async function migrate(){
+  const btn = document.getElementById('btn');
+  btn.disabled = true;
+  document.getElementById('log').innerHTML = '';
+
+  // Find all p11 keys in localStorage
+  const keys = [];
+  for(let i = 0; i < localStorage.length; i++){
+    const k = localStorage.key(i);
+    if(k && k.startsWith('p11')) keys.push(k);
+  }
+
+  if(keys.length === 0){
+    log('No Project 11 data found in this browser.', 'err');
+    btn.disabled = false;
+    return;
+  }
+
+  log(`Found ${keys.length} records to migrate...`);
+
+  let ok = 0, fail = 0;
+  for(const k of keys){
+    try{
+      const v = localStorage.getItem(k);
+      if(!v) continue;
+      const r = await fetch(`${VERCEL}/api/data`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({key: k, value: v})
+      });
+      const d = await r.json();
+      if(d.ok){
+        log(`✓ ${k}`, 'ok');
+        ok++;
+      } else {
+        log(`✗ ${k}: ${JSON.stringify(d)}`, 'err');
+        fail++;
+      }
+    } catch(ex){
+      log(`✗ ${k}: ${ex.message}`, 'err');
+      fail++;
+    }
+  }
+
+  log(`Done — ${ok} migrated, ${fail} failed.`, ok > 0 ? 'ok' : 'err');
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>
