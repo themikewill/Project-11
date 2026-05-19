@@ -11,13 +11,13 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'KV not configured' });
   }
 
-  const auth = { 'Authorization': `Bearer ${token}` };
-
   try {
     if (req.method === 'GET') {
       const { key } = req.query;
       if (!key) return res.status(400).json({ error: 'key required' });
-      const r = await fetch(`${url}/get/${encodeURIComponent(key)}`, { headers: auth });
+      const r = await fetch(`${url}/get/${encodeURIComponent(key)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       const data = await r.json();
       return res.status(200).json({ value: data.result ?? null });
     }
@@ -26,10 +26,14 @@ export default async function handler(req, res) {
       const { key, value } = req.body || {};
       if (!key) return res.status(400).json({ error: 'key required' });
       const val = typeof value === 'string' ? value : JSON.stringify(value);
-      // Simplest Upstash REST write: GET-style URL with value in path
-      const r = await fetch(`${url}/set/${encodeURIComponent(key)}/${encodeURIComponent(val)}`, {
-        method: 'GET',
-        headers: auth
+      // Upstash REST POST body format: ["SET", "key", "value"]
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(["SET", key, val])
       });
       const data = await r.json();
       return res.status(200).json({ ok: data.result === 'OK', raw: data });
