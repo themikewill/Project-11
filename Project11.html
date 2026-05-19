@@ -225,7 +225,14 @@ async function kvGet(key){
   try{
     const r=await fetch('/api/data?key='+encodeURIComponent(key));
     const d=await r.json();
-    if(d.value!==null&&d.value!==undefined)return typeof d.value==='string'?JSON.parse(d.value):d.value;
+    if(d.value===null||d.value===undefined)return null;
+    // Handle both pre-parsed objects and JSON strings
+    if(typeof d.value==='string'){
+      try{return JSON.parse(d.value);}catch(ex){return d.value;}
+    }
+    // Already an object (SDK auto-parsed)
+    if(typeof d.value==='object')return d.value;
+    return d.value;
   }catch(ex){}
   return null;
 }
