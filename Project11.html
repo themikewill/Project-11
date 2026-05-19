@@ -246,7 +246,10 @@ async function kvSet(key,value){
 
 // Week data
 async function loadWeek(weekKey){
-  const r=await kvGet('p11w_'+weekKey);
+  let r=await kvGet('p11w_'+weekKey);
+  if(r){
+    if(typeof r==='string'){try{r=JSON.parse(r);}catch(ex){}}
+  }
   if(r&&r.sc&&r.sc.area&&r.wk)return r;
   // Fall back to localStorage
   try{
@@ -260,8 +263,12 @@ function saveWeek(weekKey,data){kvSet('p11w_'+weekKey,data);}
 
 // Daily data
 async function loadDay(dateStr){
-  const r=await kvGet('p11d_'+dateStr);
-  if(r)return r;
+  let r=await kvGet('p11d_'+dateStr);
+  if(r){
+    // Handle double-encoded strings
+    if(typeof r==='string'){try{r=JSON.parse(r);}catch(ex){}}
+    if(r&&typeof r==='object')return r;
+  }
   try{
     const ls=localStorage.getItem('p11d_'+dateStr);
     if(ls){const p=JSON.parse(ls);if(p)return p;}
