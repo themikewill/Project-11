@@ -438,7 +438,8 @@ async function getBranchVisitDiary(branchName){
 
 // ── BRANCH DIARY MODAL ──
 function BranchDiaryModal({branch, onClose}){
-  const diary=useMemo(()=>getBranchVisitDiary(branch.name),[branch.name]);
+  const[diary,setDiary]=useState([]);
+  useEffect(()=>{getBranchVisitDiary(branch.name).then(d=>setDiary(d||[]));},[ branch.name]);
 
   return e('div',{className:'modal-bg',style:{alignItems:'flex-start',paddingTop:'10px',overflowY:'auto'},onClick:ev=>ev.target.className.includes('modal-bg')&&onClose()},
     e('div',{className:'modal',style:{maxWidth:'480px',maxHeight:'90vh',overflowY:'auto'}},
@@ -677,7 +678,8 @@ function Review2130Modal({branch, weekKey, onClose, onComplete}){
   );
 }
 function ScorecardTab({sc,onChange,weekKey}){
-  const visits=useMemo(()=>getVisitHistory(),[]);
+  const[visits,setVisits]=useState({});
+  useEffect(()=>{getVisitHistory().then(v=>setVisits(v||{}));},[]);
   const today=todayStr();
   const{alerts,show}=get21DayAlerts(sc.branches);
   const[uploading,setUploading]=useState(false);
@@ -936,27 +938,32 @@ function WeeklyTab({wk,onChange,weekKey,areaPri,onAreaPriChange}){
 
 // ── DAILY TAB ──
 function DailyTab({currentDate,onDateChange,wkDays}){
-  const[dl,setDl]=useState(()=>loadDay(currentDate));
+  const[dl,setDl]=useState(null);
   const[showCF,setShowCF]=useState(false);
   const[pendingDate,setPendingDate]=useState(null);
   const dlRef=useRef(dl);
   useEffect(()=>{dlRef.current=dl;},[dl]);
 
+  // Load day data async on mount and date change
+  useEffect(()=>{
+    setDl(null);
+    loadDay(currentDate).then(d=>setDl(d));
+  },[currentDate]);
+
   // Save when user switches apps or tabs on mobile
   useEffect(()=>{
-    const handler=()=>{if(document.hidden)saveDay(currentDate,dlRef.current);};
+    const handler=()=>{if(document.hidden&&dlRef.current)saveDay(currentDate,dlRef.current);};
     document.addEventListener('visibilitychange',handler);
     return()=>document.removeEventListener('visibilitychange',handler);
   },[currentDate]);
-
-  // Reload when date changes externally
-  useEffect(()=>{setDl(loadDay(currentDate));},[currentDate]);
 
   const dow=getDow(currentDate);
   const dayName=DOW_MAP[dow];
   const wkPlan=dayName?wkDays[dayName]:null;
   const hasWkPlan=wkPlan&&(wkPlan.branch||wkPlan.priorities.some(p=>p));
-  const wkPlanAlreadyApplied=wkPlan&&dl.branch===wkPlan.branch;
+  const wkPlanAlreadyApplied=wkPlan&&dl&&dl.branch===wkPlan.branch;
+
+  if(!dl)return e('div',{style:{padding:'40px',textAlign:'center',fontFamily:"'Barlow',sans-serif",color:'var(--gray)'}},'Loading...');
 
   function persist(newDl){
     setDl(newDl);
@@ -1138,7 +1145,8 @@ function TodayTab({currentDate,dl,onDlChange,sc,wkDays,weekKey,onSwitchTab}){
   const dow=getDow(currentDate);
   const dayName=DOW_MAP[dow];
   const wkPlan=dayName?wkDays[dayName]:null;
-  const visits=getVisitHistory();
+  const[visits,setVisits]=useState({});
+  useEffect(()=>{getVisitHistory().then(v=>setVisits(v||{}));},[]);
   const monthlyTasks=getMonthlyTasks(weekKey);
 
   // 21-day call status for each branch
