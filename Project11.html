@@ -952,6 +952,7 @@ function WeeklyTab({wk,onChange,weekKey,areaPri,onAreaPriChange}){
 
 // ── DAILY TAB ──
 function DailyTab({currentDate,onDateChange,wkDays}){
+  const[crashMsg,setCrashMsg]=useState('');
   const[dl,setDl]=useState(null);
   const[showCF,setShowCF]=useState(false);
   const[pendingDate,setPendingDate]=useState(null);
@@ -961,7 +962,7 @@ function DailyTab({currentDate,onDateChange,wkDays}){
   // Load day data async on mount and date change
   useEffect(()=>{
     setDl(null);
-    loadDay(currentDate).then(d=>setDl(d));
+    loadDay(currentDate).then(d=>setDl(d)).catch(err=>setCrashMsg(err.message));
   },[currentDate]);
 
   // Save when user switches apps or tabs on mobile
@@ -978,6 +979,7 @@ function DailyTab({currentDate,onDateChange,wkDays}){
   const hasWkPlan=wkPlan&&(wkPlan.branch||wkPlan.priorities.some(p=>p));
   const wkPlanAlreadyApplied=wkPlan&&dl&&dl.branch===wkPlan.branch;
 
+  if(crashMsg)return e('div',{style:{padding:'20px',color:'red',fontFamily:'monospace',fontSize:'12px',wordBreak:'break-all'}},'DAILY ERROR: '+crashMsg);
   if(!dl)return e('div',{style:{padding:'40px',textAlign:'center',fontFamily:"'Barlow',sans-serif",color:'var(--gray)'}},'Loading...');
 
   function persist(newDl){
