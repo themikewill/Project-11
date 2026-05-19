@@ -23,10 +23,22 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { key, value } = req.body || {};
-      if (!key) return res.status(400).json({ error: 'key required' });
+      // Parse body manually in case Vercel hasn't done it
+      let body = req.body;
+      if (typeof body === 'string') {
+        try { body = JSON.parse(body); } catch(e) {}
+      }
+      if (!body || typeof body !== 'object') {
+        // Try reading raw body
+        const chunks = [];
+        for await (const chunk of req) chunks.push(chunk);
+        const raw = Buffer.concat(chunks).toString();
+        try { body = JSON.parse(raw); } catch(e) { body = {}; }
+      }
+
+      const { key, value } = body;
+      if (!key) return res.status(400).json({ error: 'key required', body: JSON.stringify(body).substring(0,100) });
       const val = typeof value === 'string' ? value : JSON.stringify(value);
-      // Correct Upstash REST: POST to /set/key with value as raw body
       const r = await fetch(`${url}/set/${encodeURIComponent(key)}`, {
         method: 'POST',
         headers: auth,
