@@ -293,13 +293,20 @@ async function migrateToCloud(){
     if(k&&k.startsWith('p11'))keys.push(k);
   }
   let count=0;
+  const errors=[];
   for(const k of keys){
     try{
       const v=localStorage.getItem(k);
-      if(v){await fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k,value:v})});count++;}
-    }catch(ex){}
+      if(v){
+        const r=await fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k,value:v})});
+        const d=await r.json();
+        if(d.ok)count++;
+        else errors.push(k+':'+JSON.stringify(d));
+      }
+    }catch(ex){errors.push(k+':'+ex.message);}
   }
-  return count;
+  if(errors.length)console.error('Migration errors:',errors);
+  return{count,errors};
 }
 
 // ── SEED DATA — Week of May 11 2026 ──
@@ -1295,8 +1302,8 @@ function App(){
   async function handleMigrate(){
     setMigrating(true);
     setMigrateMsg('Migrating...');
-    const count=await migrateToCloud();
-    setMigrateMsg(`✓ Migrated ${count} records to cloud`);
+    const{count,errors}=await migrateToCloud();
+    setMigrateMsg(errors.length?`✓ ${count} migrated, ${errors.length} errors — check console`:`✓ Migrated ${count} records to cloud`);
     setMigrating(false);
     // Reload current week from cloud
     loadWeek(weekKey).then(d=>setWeekData(d));
