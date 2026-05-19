@@ -1363,7 +1363,7 @@ function App(){
         areaPri:weekData.sc.areaPri,
         onAreaPriChange:v=>handleWeekChange('sc',{...weekData.sc,areaPri:v})
       }),
-      tab==='daily'&&weekData&&e(DailyTab,{currentDate,onDateChange:handleDateChange,wkDays:weekData.wk.days})
+      tab==='daily'&&weekData&&weekData.wk&&e(DailyTab,{currentDate,onDateChange:handleDateChange,wkDays:weekData.wk.days||{}})
     ),
     showModal&&e('div',{className:'modal-bg',onClick:ev=>ev.target.className==='modal-bg'&&setShowModal(false)},
       e('div',{className:'modal'},
