@@ -262,24 +262,24 @@ function recordVisit(branchName,dateStr){
   }
 }
 
-// ━━ SEED DATA ━ Week of May 18 2026 ━━
-const SEED_WEEK_KEY = '2026-05-18';
+// ── SEED DATA — Week of May 11 2026 ──
+const SEED_WEEK_KEY = '2026-05-11';
 const SEED_DATA = {
   sc:{
     areaPri:['','',''],
-    area:{opb:'108.29%',cash:'37%',loss:'1.67%',hlOrg:'18.00%',hl3rd:'1.84%'},
+    area:{opb:'107.38%',cash:'23%',loss:'1.42%',hlOrg:'18.43%',hl3rd:'1.84%'},
     branches:{
-      'WI0262':{opb:'104.79%',cash:'42%',loss:'1.41%',hlOrg:'27.63%',hl3rd:'1.92%',rank:'1',call21:false},
-      'WI0264':{opb:'110.12%',cash:'35%',loss:'1.40%',hlOrg:'24.14%',hl3rd:'1.32%',rank:'6',call21:false},
-      'WI0270':{opb:'95.36%', cash:'42%',loss:'1.75%',hlOrg:'40.63%',hl3rd:'2.70%',rank:'4',call21:false},
-      'WI0279':{opb:'100.37%',cash:'32%',loss:'1.81%',hlOrg:'30.00%',hl3rd:'1.18%',rank:'10',call21:false},
-      'WI0290':{opb:'102.33%',cash:'39%',loss:'0.76%',hlOrg:'19.66%',hl3rd:'0.51%',rank:'5',call21:false},
-      'WI0292':{opb:'105.90%',cash:'40%',loss:'1.64%',hlOrg:'22.86%',hl3rd:'2.60%',rank:'3',call21:false},
-      'WI0305':{opb:'112.64%',cash:'41%',loss:'-0.06%',hlOrg:'28.57%',hl3rd:'2.18%',rank:'2',call21:false},
-      'WI0307':{opb:'131.27%',cash:'33%',loss:'0.62%',hlOrg:'43.48%',hl3rd:'2.66%',rank:'8',call21:false},
-      'WI0316':{opb:'121.89%',cash:'33%',loss:'0.52%',hlOrg:'22.73%',hl3rd:'0.91%',rank:'7',call21:false},
-      'WI0347':{opb:'110.36%',cash:'31%',loss:'2.57%',hlOrg:'16.44%',hl3rd:'0.87%',rank:'11',call21:false},
-      'WI0348':{opb:'105.29%',cash:'36%',loss:'3.16%',hlOrg:'7.19%', hl3rd:'4.25%',rank:'9',call21:false},
+      'WI0262':{opb:'105.65%',cash:'28%',loss:'1.34%',hlOrg:'28.00%',hl3rd:'2.01%',rank:'1',call21:false},
+      'WI0264':{opb:'108.98%',cash:'22%',loss:'0.37%',hlOrg:'23.08%',hl3rd:'1.04%',rank:'4',call21:false},
+      'WI0270':{opb:'94.57%', cash:'30%',loss:'1.47%',hlOrg:'45.16%',hl3rd:'2.40%',rank:'5',call21:false},
+      'WI0279':{opb:'101.07%',cash:'21%',loss:'0.90%',hlOrg:'30.77%',hl3rd:'1.22%',rank:'10',call21:false},
+      'WI0290':{opb:'101.59%',cash:'25%',loss:'0.56%',hlOrg:'15.04%',hl3rd:'0.60%',rank:'7',call21:false},
+      'WI0292':{opb:'102.67%',cash:'22%',loss:'2.04%',hlOrg:'25.00%',hl3rd:'2.84%',rank:'9',call21:false},
+      'WI0305':{opb:'111.86%',cash:'22%',loss:'-0.82%',hlOrg:'32.79%',hl3rd:'2.31%',rank:'2',call21:false},
+      'WI0307':{opb:'131.52%',cash:'21%',loss:'-0.27%',hlOrg:'44.19%',hl3rd:'2.58%',rank:'3',call21:false},
+      'WI0316':{opb:'118.57%',cash:'17%',loss:'0.77%',hlOrg:'23.17%',hl3rd:'0.96%',rank:'8',call21:false},
+      'WI0347':{opb:'108.81%',cash:'22%',loss:'1.46%',hlOrg:'19.12%',hl3rd:'0.81%',rank:'6',call21:false},
+      'WI0348':{opb:'104.74%',cash:'23%',loss:'3.31%',hlOrg:'7.30%', hl3rd:'4.09%',rank:'11',call21:false},
     }
   },
   wk:{areaPri:['','',''],monTasks:[false,false,false,false,false,false,false,false],days:{
@@ -663,7 +663,7 @@ function ScorecardTab({sc,onChange,weekKey}){
         r.readAsDataURL(file);
       });
 
-      const response=await fetch('https://api.anthropic.com/v1/messages',{
+      const response=await fetch('/api/claude',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
@@ -679,10 +679,10 @@ function ScorecardTab({sc,onChange,weekKey}){
 Return ONLY this JSON structure, no other text:
 {
   "branches": {
-    "WI0262": {"opb":"104.79%","cash":"42%","loss":"1.41%","hlOrg":"27.63%","hl3rd":"1.92%","rank":"1"},
+    "WI0262": {"opb":"105.65%","cash":"28%","loss":"1.34%","hlOrg":"28.00%","hl3rd":"2.01%","rank":"5"},
     ...all 11 branches in same format...
   },
-  "area": {"opb":"108.29%","cash":"37%","loss":"1.67%","hlOrg":"18.00%","hl3rd":"1.84%"}
+  "area": {"opb":"107.38%","cash":"23%","loss":"1.42%","hlOrg":"18.43%","hl3rd":"1.84%"}
 }
 
 For each branch find:
