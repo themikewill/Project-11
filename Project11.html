@@ -973,7 +973,8 @@ function DailyTab({currentDate,onDateChange,wkDays}){
 
   const dow=getDow(currentDate);
   const dayName=DOW_MAP[dow];
-  const wkPlan=dayName?wkDays[dayName]:null;
+  const safeWkDays=wkDays||{};
+  const wkPlan=dayName?safeWkDays[dayName]:null;
   const hasWkPlan=wkPlan&&(wkPlan.branch||wkPlan.priorities.some(p=>p));
   const wkPlanAlreadyApplied=wkPlan&&dl&&dl.branch===wkPlan.branch;
 
@@ -1013,7 +1014,7 @@ function DailyTab({currentDate,onDateChange,wkDays}){
     // Pull weekly plan for target date
     const targetDow=getDow(targetDate);
     const targetDay=DOW_MAP[targetDow];
-    const plan=targetDay?wkDays[targetDay]:null;
+    const plan=targetDay?safeWkDays[targetDay]:null;
     if(plan){
       if(plan.branch&&!base.branch)base.branch=plan.branch;
       plan.priorities.forEach((p,i)=>{if(p&&!base.priorities[i])base.priorities[i]=p;});
