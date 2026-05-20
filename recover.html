@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project 11 — Recovery</title>
+<style>
+  body{font-family:sans-serif;background:#1B3A6B;color:#fff;margin:0;padding:20px;box-sizing:border-box;}
+  .box{background:#fff;color:#1a1a2e;border-radius:12px;padding:20px;max-width:500px;margin:0 auto;}
+  h2{font-size:18px;margin:0 0 6px;color:#1B3A6B;}
+  p{font-size:12px;color:#666;margin:0 0 16px;}
+  button{width:100%;padding:12px;background:#1B3A6B;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px;}
+  button.gold{background:#C8972B;}
+  button:disabled{opacity:0.5;}
+  #output{margin-top:12px;font-size:11px;color:#333;background:#f5f5f5;border-radius:6px;padding:10px;max-height:400px;overflow-y:auto;word-break:break-all;white-space:pre-wrap;}
+  .ok{color:#2E7D32;} .err{color:#C62828;} .info{color:#1B3A6B;}
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>Project 11 — Emergency Recovery</h2>
+  <p>Step 1: Tap "Show Local Data" to see what's in this browser.<br>
+     Step 2: If data appears, tap "Push to Cloud" to save it.</p>
+  <button onclick="showData()">1. Show Local Data</button>
+  <button class="gold" id="pushBtn" onclick="pushData()" disabled>2. Push to Cloud</button>
+  <div id="output"></div>
+</div>
+<script>
+const VERCEL = 'https://project-11-henna.vercel.app';
+let foundData = {};
+
+function log(msg, cls='info'){
+  const d = document.getElementById('output');
+  d.innerHTML += `<span class="${cls}">${msg}</span>\n`;
+  d.scrollTop = d.scrollHeight;
+}
+
+function showData(){
+  document.getElementById('output').innerHTML = '';
+  foundData = {};
+  
+  const keys = [];
+  for(let i = 0; i < localStorage.length; i++){
+    const k = localStorage.key(i);
+    if(k && k.startsWith('p11')) keys.push(k);
+  }
+  
+  if(keys.length === 0){
+    log('No p11 data found in localStorage.', 'err');
+    return;
+  }
+  
+  log(`Found ${keys.length} keys:\n`, 'ok');
+  
+  for(const k of keys){
+    const raw = localStorage.getItem(k);
+    if(!raw) continue;
+    try{
+      const parsed = JSON.parse(raw);
+      foundData[k] = parsed;
+      // Show a summary
+      if(k.startsWith('p11d_')){
+        const branch = parsed.branch || '(no branch)';
+        const hasNotes = parsed.notes ? '✓ notes' : '';
+        const hasCalls = (parsed.calls||[]).filter(c=>c.text).length;
+        log(`${k}: branch=${branch} calls=${hasCalls} ${hasNotes}`, 'info');
+      } else if(k.startsWith('p11w_')){
+        const days = Object.entries(parsed.wk?.days||{}).filter(([,v])=>v.branch).map(([k])=>k).join(',');
+        log(`${k}: days with branches: ${days||'none'}`, 'info');
+      } else if(k === 'p11g_visits'){
+        const branches = Object.keys(parsed).join(', ');
+        log(`${k}: ${branches}`, 'info');
+      } else {
+        log(`${k}: found`, 'info');
+      }
+    } catch(ex){
+      log(`${k}: parse error — ${ex.message}`, 'err');
+    }
+  }
+  
+  if(Object.keys(foundData).length > 0){
+    document.getElementById('pushBtn').disabled = false;
+    log('\nTap "Push to Cloud" to save.', 'ok');
+  }
+}
+
+async function pushData(){
+  document.getElementById('pushBtn').disabled = true;
+  log('\n--- Pushing to cloud ---', 'info');
+  
+  let ok = 0, fail = 0;
+  for(const [k, parsed] of Object.entries(foundData)){
+    try{
+      const r = await fetch(`${VERCEL}/api/data`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({key: k, value: JSON.stringify(parsed)})
+      });
+      const d = await r.json();
+      if(d.ok){ log(`✓ ${k}`, 'ok'); ok++; }
+      else { log(`✗ ${k}: ${JSON.stringify(d)}`, 'err'); fail++; }
+    } catch(ex){
+      log(`✗ ${k}: ${ex.message}`, 'err'); fail++;
+    }
+  }
+  
+  log(`\nDone: ${ok} saved, ${fail} failed.`, ok > 0 ? 'ok' : 'err');
+  document.getElementById('pushBtn').disabled = false;
+}
+</script>
+</body>
+</html>
