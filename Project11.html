@@ -237,11 +237,12 @@ async function kvGet(key){
   return null;
 }
 async function kvSet(key,value){
+  // Always write localStorage first
+  try{localStorage.setItem(key,JSON.stringify(value));}catch(ex){}
+  // Then try cloud
   try{
     await fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key,value:JSON.stringify(value)})});
   }catch(ex){}
-  // Also keep localStorage as backup
-  try{localStorage.setItem(key,JSON.stringify(value));}catch(ex){}
 }
 
 // Week data
