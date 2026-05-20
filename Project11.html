@@ -1214,11 +1214,7 @@ function TodayTab({currentDate,dl,onDlChange,sc,wkDays,weekKey,onSwitchTab}){
     const lastCall=callHistory[b.id]?daysBetween(callHistory[b.id],today):null;
     const checked=sc.branches[b.id]?.call21;
     return{...b,lastCall,checked};
-  }).filter(b=>!b.checked).sort((a,b)=>{
-    if(a.lastCall===null)return -1;
-    if(b.lastCall===null)return 1;
-    return b.lastCall-a.lastCall;
-  });
+  }).filter(b=>!b.checked).sort((a,b)=>a.id.localeCompare(b.id));
 
   function dorToggle(){
     const nd={...dl,dor:!dl.dor};
@@ -1271,7 +1267,7 @@ function TodayTab({currentDate,dl,onDlChange,sc,wkDays,weekKey,onSwitchTab}){
           else if(days>14){cls='call-due';label=`${days}d ago`;}
           else{cls='call-ok';label=`${days}d ago`;}
           return e('div',{className:'call-row',key:b.id},
-            e('div',{className:'call-branch'},b.name),
+            e('div',{className:'call-branch'},b.id+' · '+b.name),
             e('span',{className:`call-days ${cls}`},label)
           );
         })
