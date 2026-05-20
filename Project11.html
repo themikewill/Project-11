@@ -300,6 +300,25 @@ async function recordVisit(branchName,dateStr){
   }
 }
 
+// 21-day call history — keyed by branch ID, stores last call date
+async function getCallHistory(){
+  const r=await kvGet('p11g_calls');
+  if(r){
+    let v=r;
+    if(typeof v==='string'){try{v=JSON.parse(v);}catch(ex){}}
+    if(typeof v==='object')return v;
+  }
+  try{const ls=localStorage.getItem('p11g_calls');return ls?JSON.parse(ls):{};}catch(ex){return {};}
+}
+async function recordCall(branchId,dateStr){
+  if(!branchId||!dateStr)return;
+  const h=await getCallHistory();
+  if(!h[branchId]||h[branchId]<dateStr){
+    h[branchId]=dateStr;
+    kvSet('p11g_calls',h);
+  }
+}
+
 // ── MIGRATION ── Push all localStorage p11 keys to cloud
 async function migrateToCloud(){
   const keys=[];
@@ -888,6 +907,7 @@ For area row find same metrics from the Area/Eastern WI row.`}
       onClose:()=>setReviewBranch(null),
       onComplete:()=>{
         updBranch(reviewBranch.id,'call21',true);
+        recordCall(reviewBranch.id,todayStr());
         setReviewBranch(null);
       }
     }),
@@ -1184,12 +1204,14 @@ function TodayTab({currentDate,dl,onDlChange,sc,wkDays,weekKey,onSwitchTab}){
   const dayName=DOW_MAP[dow];
   const wkPlan=dayName?wkDays[dayName]:null;
   const[visits,setVisits]=useState({});
+  const[callHistory,setCallHistory]=useState({});
   useEffect(()=>{getVisitHistory().then(v=>setVisits(v||{}));},[]);
+  useEffect(()=>{getCallHistory().then(v=>setCallHistory(v||{}));},[]);
   const monthlyTasks=getMonthlyTasks(weekKey);
 
   // 21-day call status for each branch
   const callStatus=BRANCHES.map(b=>{
-    const lastCall=visits[b.id]?daysBetween(visits[b.id],today):null;
+    const lastCall=callHistory[b.id]?daysBetween(callHistory[b.id],today):null;
     const checked=sc.branches[b.id]?.call21;
     return{...b,lastCall,checked};
   }).filter(b=>!b.checked).sort((a,b)=>{
