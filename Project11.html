@@ -205,7 +205,7 @@ const METRIC_LABELS=['OPB %','Cash %','Loss %','HL Org','HL 3rd'];
 const DOW_MAP={1:'MONDAY',2:'TUESDAY',3:'WEDNESDAY',4:'THURSDAY',5:'FRIDAY'};
 
 // ── UTILS ──
-function todayStr(){return new Date().toISOString().slice(0,10);}
+function todayStr(){const d=new Date();const y=d.getFullYear();const m=String(d.getMonth()+1).padStart(2,'0');const day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`;}
 function getWeekKey(date){
   const d=new Date(typeof date==='string'?date+'T12:00:00':date);
   const diff=d.getDate()-d.getDay()+(d.getDay()===0?-6:1);
@@ -226,13 +226,13 @@ async function kvGet(key){
     const r=await fetch('/api/data?key='+encodeURIComponent(key));
     const d=await r.json();
     if(d.value===null||d.value===undefined)return null;
-    // Handle both pre-parsed objects and JSON strings
-    if(typeof d.value==='string'){
-      try{return JSON.parse(d.value);}catch(ex){return d.value;}
+    // Unwrap any depth of JSON encoding
+    let v=d.value;
+    let attempts=0;
+    while(typeof v==='string'&&attempts<10){
+      try{const p=JSON.parse(v);v=p;attempts++;}catch(ex){break;}
     }
-    // Already an object (SDK auto-parsed)
-    if(typeof d.value==='object')return d.value;
-    return d.value;
+    return v;
   }catch(ex){}
   return null;
 }
@@ -311,13 +311,15 @@ async function migrateToCloud(){
   const errors=[];
   for(const k of keys){
     try{
-      const v=localStorage.getItem(k);
-      if(v){
-        const r=await fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k,value:v})});
-        const d=await r.json();
-        if(d.ok)count++;
-        else errors.push(k+':'+JSON.stringify(d));
-      }
+      const raw=localStorage.getItem(k);
+      if(!raw)continue;
+      // Parse first to ensure it's valid, then send as clean JSON string
+      let parsed;
+      try{parsed=JSON.parse(raw);}catch(ex){continue;}
+      const r=await fetch('/api/data',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:k,value:JSON.stringify(parsed)})});
+      const d=await r.json();
+      if(d.ok)count++;
+      else errors.push(k+':'+JSON.stringify(d));
     }catch(ex){errors.push(k+':'+ex.message);}
   }
   if(errors.length)console.error('Migration errors:',errors);
